@@ -144,6 +144,11 @@ needed.
 - `cw_search_opportunity_notes` — Search notes on an opportunity
 - `cw_search_sales_stages` — List sales pipeline stages
 
+### Schedule
+- `cw_search_schedule_entries` — Search schedule entries
+- `cw_get_schedule_entry` — Get a schedule entry by ID
+- `cw_create_schedule_entry` — Create a new schedule entry
+
 ### Catalog (Products)
 - `cw_search_catalog_items` — Search product catalog items
 - `cw_get_catalog_item` — Get a catalog item by ID
