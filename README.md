@@ -41,6 +41,7 @@ For deploying to **Azure Container Apps** with Entra ID OAuth 2.1, see [AZURE_AC
 | `MCP_TRANSPORT` | No | `stdio` (default) or `http` |
 | `MCP_HTTP_PORT` | No | HTTP port (default: `8080`) |
 | `AUTH_MODE` | No | `env` (default) or `gateway` for header-based auth |
+| `MCP_ACCESS_KEY` | No | Shared-secret gate for `AUTH_MODE=env`. When set, `/mcp` requests must include it via the `mcp-access-key` header or `Authorization: Bearer <key>`. No effect in `gateway` mode. If unset, `/mcp` has no application-layer auth (put it behind a network control or use `gateway`/OAuth instead). |
 
 ### API Base URL (`CW_MANAGE_URL`)
 

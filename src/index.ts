@@ -20,6 +20,12 @@
  *   MCP_HTTP_PORT               - HTTP port (default: 8080)
  *   MCP_HTTP_HOST               - HTTP host (default: 0.0.0.0)
  *   AUTH_MODE                   - "env" (default) or "gateway" for header-based auth
+ *   MCP_ACCESS_KEY              - Optional shared-secret gate for AUTH_MODE=env.
+ *                                  When set, every /mcp request must present it via
+ *                                  the "mcp-access-key" header or "Authorization: Bearer <key>".
+ *                                  Has no effect in gateway mode (per-request CW headers
+ *                                  already gate those requests). Not checked if unset —
+ *                                  preserves the prior open-by-default behavior.
  *
  * Entra ID OAuth 2.1 (optional — set MCP_OAUTH_ENABLED=true to activate):
  *   MCP_OAUTH_ENABLED           - Enable Entra ID auth middleware (default: false)
@@ -57,6 +63,33 @@ import {
 } from "./mcp-server.js";
 
 // ---------------------------------------------------------------------------
+// Shared-secret access key (AUTH_MODE=env gate)
+// ---------------------------------------------------------------------------
+
+const ACCESS_KEY_HEADER = "mcp-access-key";
+
+/** Pull the access key from either the custom header or an Authorization: Bearer. */
+function extractAccessKey(req: IncomingMessage): string | undefined {
+  const headerVal = req.headers[ACCESS_KEY_HEADER];
+  if (typeof headerVal === "string" && headerVal.length > 0) {
+    return headerVal;
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+  return undefined;
+}
+
+/** Constant-time string comparison (same approach as the MCP_BEARER_TOKEN check below). */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  return timingSafeEqual(
+    createHash("sha256").update(a).digest(),
+    createHash("sha256").update(b).digest(),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Transport: stdio
 // ---------------------------------------------------------------------------
 
@@ -78,6 +111,27 @@ async function startHttpTransport(): Promise<void> {
   const host = process.env.MCP_HTTP_HOST || "0.0.0.0";
   const authMode = process.env.AUTH_MODE || "env";
   const isGatewayMode = authMode === "gateway";
+
+  // ---------------------------------------------------------------------------
+  // Shared-secret access key setup (optional, env mode only)
+  // ---------------------------------------------------------------------------
+  const accessKey = process.env.MCP_ACCESS_KEY || undefined;
+  const accessKeyGateActive = Boolean(accessKey) && !isGatewayMode;
+  if (accessKey && isGatewayMode) {
+    console.error(
+      "[auth] MCP_ACCESS_KEY is set but AUTH_MODE=gateway — ignoring it. " +
+        "Gateway mode is already gated per-request by the X-CW-* credential headers.",
+    );
+  } else if (accessKeyGateActive) {
+    console.error(
+      `[auth] MCP_ACCESS_KEY gate enabled — requests must present it via '${ACCESS_KEY_HEADER}' or 'Authorization: Bearer <key>'`,
+    );
+  } else {
+    console.error(
+      "[auth] MCP_ACCESS_KEY not set — /mcp is unauthenticated at the application layer. " +
+        "Set MCP_ACCESS_KEY (env mode) or AUTH_MODE=gateway or MCP_OAUTH_ENABLED=true to restrict access.",
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Entra ID auth setup (optional)
@@ -159,6 +213,7 @@ async function startHttpTransport(): Promise<void> {
           status: "ok",
           transport: "http",
           authMode: isGatewayMode ? "gateway" : "env",
+          accessKeyGateActive,
           oauthEnabled,
           timestamp: new Date().toISOString(),
         }),
@@ -234,6 +289,26 @@ async function startHttpTransport(): Promise<void> {
               res.writeHead(500, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "internal_error" }));
             }
+            return;
+          }
+        }
+
+        // ------------------------------------------------------------------
+        // Shared-secret access key check (AUTH_MODE=env only)
+        // ------------------------------------------------------------------
+        if (accessKeyGateActive) {
+          const provided = extractAccessKey(req);
+          if (!provided || !timingSafeStringEqual(provided, accessKey!)) {
+            console.error(
+              `[audit] REJECTED (bad/missing access key) | ${new Date().toISOString()} | POST /mcp`,
+            );
+            res.writeHead(401, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                error: "unauthorized",
+                message: `Missing or invalid access key. Provide it via the '${ACCESS_KEY_HEADER}' header or 'Authorization: Bearer <key>'.`,
+              }),
+            );
             return;
           }
         }
