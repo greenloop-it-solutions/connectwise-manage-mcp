@@ -47,8 +47,14 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       name: z.string().optional().describe("Name/subject of the schedule entry"),
       description: z.string().optional().describe("Schedule entry description"),
       doNotDisplayInDispatch: z.boolean().optional().describe("Hide from the dispatch portal"),
+      allowScheduleConflictsFlag: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set to true to allow this entry to be created even if it conflicts with existing schedule entries. Use when intentionally overlapping Tier Queue blocks or other overrideable entries.",
+        ),
     },
-    async ({ objectId, typeId, dateStart, dateEnd, memberId, name, description, doNotDisplayInDispatch }) => {
+    async ({ objectId, typeId, dateStart, dateEnd, memberId, name, description, doNotDisplayInDispatch, allowScheduleConflictsFlag }) => {
       const body: Record<string, unknown> = {
         objectId,
         type: { identifier: typeId },
@@ -59,6 +65,7 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       if (name) body.name = name;
       if (description) body.description = description;
       if (doNotDisplayInDispatch !== undefined) body.doNotDisplayInDispatch = doNotDisplayInDispatch;
+      if (allowScheduleConflictsFlag) body.allowScheduleConflictsFlag = true;
 
       const result = await client.post("/schedule/entries", body);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
@@ -79,9 +86,30 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
           }),
         )
         .describe("Array of JSON Patch operations"),
+      allowScheduleConflictsFlag: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set to true to allow this entry to be scheduled over existing conflicting entries. Use when intentionally overlapping Tier Queue blocks or other overrideable entries.",
+        ),
     },
-    async ({ id, operations }) => {
-      const result = await client.patch(`/schedule/entries/${id}`, operations);
+    async ({ id, operations, allowScheduleConflictsFlag }) => {
+      const patchOps = allowScheduleConflictsFlag
+        ? [...operations, { op: "replace", path: "allowScheduleConflictsFlag", value: true }]
+        : operations;
+      const result = await client.patch(`/schedule/entries/${id}`, patchOps);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_get_schedule_calendar",
+    "Get a ConnectWise schedule calendar by ID. Returns working hours per day of the week (e.g. mondayStartTime, mondayEndTime). Use GET /system/members/{id} first to retrieve the member's calendar.id, then call this to determine their actual working hours before scheduling. Never schedule meetings outside a member's working hours.",
+    {
+      id: z.number().describe("Calendar ID (found on a member object as calendar.id)"),
+    },
+    async ({ id }) => {
+      const result = await client.get(`/schedule/calendars/${id}`);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );

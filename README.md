@@ -148,6 +148,8 @@ needed.
 - `cw_search_schedule_entries` — Search schedule entries
 - `cw_get_schedule_entry` — Get a schedule entry by ID
 - `cw_create_schedule_entry` — Create a new schedule entry
+- `cw_update_schedule_entry` — Update an existing schedule entry (JSON Patch)
+- `cw_get_schedule_calendar` — Get a schedule calendar by ID (working hours)
 
 ### Catalog (Products)
 - `cw_search_catalog_items` — Search product catalog items
