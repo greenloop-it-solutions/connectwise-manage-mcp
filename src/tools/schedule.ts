@@ -64,4 +64,25 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );
+
+  server.tool(
+    "cw_update_schedule_entry",
+    "Update an existing schedule entry (e.g. move it to a new time or reassign it) using JSON Patch operations.",
+    {
+      id: z.number().describe("Schedule entry ID"),
+      operations: z
+        .array(
+          z.object({
+            op: z.enum(["replace", "add", "remove"]).describe("Patch operation"),
+            path: z.string().describe("JSON path (e.g. 'dateStart', 'dateEnd', 'member/id')"),
+            value: z.unknown().optional().describe("New value"),
+          }),
+        )
+        .describe("Array of JSON Patch operations"),
+    },
+    async ({ id, operations }) => {
+      const result = await client.patch(`/schedule/entries/${id}`, operations);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
 }
