@@ -18,15 +18,9 @@ spec:
     - key: NODE_ENV
       value: "production"
       scope: RUN_TIME
-    - key: CW_MANAGE_COMPANY_ID
-      type: SECRET
-      scope: RUN_AND_BUILD_TIME
-    - key: CW_MANAGE_PUBLIC_KEY
-      type: SECRET
-      scope: RUN_AND_BUILD_TIME
-    - key: CW_MANAGE_PRIVATE_KEY
-      type: SECRET
-      scope: RUN_AND_BUILD_TIME
-    - key: CW_MANAGE_CLIENT_ID
-      type: SECRET
-      scope: RUN_AND_BUILD_TIME
+    - key: AUTH_MODE
+      value: "gateway"
+      scope: RUN_TIME
+    - key: GATEWAY_HEADER_NAME
+      value: "x-cw-gateway-key"
+      scope: RUN_TIME

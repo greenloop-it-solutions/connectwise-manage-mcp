@@ -28,10 +28,7 @@ const MCP_HEADERS = {
   "Content-Type": "application/json",
   // Gateway credentials so the full tool set registers (no API calls happen
   // for tools/list, resources/list, or resources/read).
-  "X-CW-Company-Id": "acme",
-  "X-CW-Public-Key": "pub",
-  "X-CW-Private-Key": "priv",
-  "X-CW-Client-Id": "client-guid",
+  "x-cw-gateway-key": Buffer.from("acme+pub:priv@client-guid").toString("base64"),
 };
 
 async function mcp(body: unknown): Promise<unknown> {

@@ -25,12 +25,11 @@ async function mcp(body: unknown, env: Env = {}): Promise<Response> {
   );
 }
 
+const GATEWAY_KEY = Buffer.from("acme+pub:priv@client-guid").toString("base64");
+
 const GATEWAY_HEADERS = {
   ...MCP_HEADERS,
-  "X-CW-Company-Id": "acme",
-  "X-CW-Public-Key": "pub",
-  "X-CW-Private-Key": "priv",
-  "X-CW-Client-Id": "client-guid",
+  "x-cw-gateway-key": GATEWAY_KEY,
 };
 
 describe("Cloudflare Worker entrypoint", () => {

@@ -50,7 +50,7 @@ export function buildConfig(
   if (!companyId || !publicKey || !privateKey || !clientId) {
     return {
       error:
-        "Missing credentials: X-CW-Company-Id, X-CW-Public-Key, X-CW-Private-Key, X-CW-Client-Id (or CW_MANAGE_* environment variables)",
+        "Missing or incomplete ConnectWise credentials (company ID, public key, private key, client ID)",
     };
   }
 
@@ -69,22 +69,83 @@ export function buildConfig(
   };
 }
 
+/** Header name gateway mode reads by default when GATEWAY_HEADER_NAME is unset. */
+export const DEFAULT_GATEWAY_HEADER_NAME = "x-cw-gateway-key";
+
 /**
- * Resolve per-request gateway credentials from a header accessor.
+ * Resolve gateway mode's configured header name from `process.env`. Node-only
+ * (stdio/HTTP entrypoint) — Cloudflare Workers doesn't populate `process.env`
+ * from its `env` bindings, so `worker.ts` resolves its own header name from
+ * its `Env` and passes it into `resolveGatewayConfig` explicitly instead.
+ */
+export function gatewayHeaderName(): string {
+  return (process.env.GATEWAY_HEADER_NAME || DEFAULT_GATEWAY_HEADER_NAME).toLowerCase();
+}
+
+/**
+ * Parse a single gateway credentials header value:
+ *   Base64("{companyId}+{publicKey}:{privateKey}@{clientId}[{serverUrl}]")
+ * `[{serverUrl}]` is optional. Returns the decoded parts, or an error when the
+ * value isn't valid base64 or doesn't match the expected shape.
+ */
+function parseGatewayHeaderValue(raw: string): {
+  companyId?: string;
+  publicKey?: string;
+  privateKey?: string;
+  clientId?: string;
+  baseUrl?: string;
+  error?: string;
+} {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(raw, "base64").toString("utf8");
+  } catch {
+    return { error: "Failed to base64-decode the gateway credentials header" };
+  }
+
+  const match = decoded.match(/^([^+]+)\+([^:]+):([^@]+)@([^[]+)(?:\[([^\]]+)\])?$/);
+  if (!match) {
+    return {
+      error:
+        'Malformed gateway credentials header. Expected Base64("{companyId}+{publicKey}:{privateKey}@{clientId}[{serverUrl}]")',
+    };
+  }
+
+  const [, companyId, publicKey, privateKey, clientId, baseUrl] = match;
+  return { companyId, publicKey, privateKey, clientId, baseUrl };
+}
+
+/**
+ * Resolve per-request gateway credentials from a single combined header.
  *
  * Works with any transport: pass a getter that returns a (lowercased) header
- * value. Returns `{ config }` on success, or `{ error }` when required headers
- * are missing.
+ * value, and the (already-lowercased) header name to look up — each
+ * entrypoint resolves that name from its own environment mechanism (Node
+ * `process.env` via `gatewayHeaderName()`, Workers' `Env` bindings, etc).
+ * Returns `{ config }` on success, or `{ error }` when the header is missing
+ * or malformed.
  */
 export function resolveGatewayConfig(
   getHeader: (lowerName: string) => string | undefined,
+  headerName: string = DEFAULT_GATEWAY_HEADER_NAME,
 ): { config?: CwManageConfig; error?: string } {
+  const raw = getHeader(headerName);
+
+  if (!raw) {
+    return { error: `Missing credentials: the '${headerName}' header is required` };
+  }
+
+  const parsed = parseGatewayHeaderValue(raw);
+  if (parsed.error) {
+    return { error: parsed.error };
+  }
+
   return buildConfig(
-    getHeader("x-cw-company-id"),
-    getHeader("x-cw-public-key"),
-    getHeader("x-cw-private-key"),
-    getHeader("x-cw-client-id"),
-    getHeader("x-cw-url"),
+    parsed.companyId,
+    parsed.publicKey,
+    parsed.privateKey,
+    parsed.clientId,
+    parsed.baseUrl,
   );
 }
 

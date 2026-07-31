@@ -15,6 +15,8 @@ This is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) serve
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wyre-technology/connectwise-manage-mcp)
 
+> **DigitalOcean one-click deploy uses [Gateway Mode](#http-transport-gateway-mode):** no ConnectWise credentials are stored on the server — every `/mcp` request supplies them via a single header instead. See that section below for how to build the header value.
+
 > **Note on registry auth:** This server depends only on public npm packages, so the Cloudflare and DigitalOcean cloud builders install its dependencies anonymously — no token is required for one-click deploy. (If a future release adds a private `@wyre-technology/*` dependency, you would supply a GitHub PAT with `read:packages` as a build variable — `NODE_AUTH_TOKEN` for Cloudflare Workers, a build-time `GITHUB_TOKEN` secret for DigitalOcean.)
 >
 > **Installing the published package:** The released package is published to the [GitHub Packages](https://github.com/wyre-technology/connectwise-manage-mcp/pkgs/npm/connectwise-manage-mcp) npm registry, which requires authentication on every install (even for public packages). To install it, authenticate npm to `npm.pkg.github.com` with a GitHub PAT that has `read:packages`:
@@ -41,7 +43,7 @@ For deploying to **Azure Container Apps** with Entra ID OAuth 2.1, see [AZURE_AC
 | `MCP_TRANSPORT` | No | `stdio` (default) or `http` |
 | `MCP_HTTP_PORT` | No | HTTP port (default: `8080`) |
 | `AUTH_MODE` | No | `env` (default) or `gateway` for header-based auth |
-| `MCP_ACCESS_KEY` | No | Shared-secret gate for `AUTH_MODE=env`. When set, `/mcp` requests must include it via the `mcp-access-key` header or `Authorization: Bearer <key>`. No effect in `gateway` mode. If unset, `/mcp` has no application-layer auth (put it behind a network control or use `gateway`/OAuth instead). |
+| `GATEWAY_HEADER_NAME` | No | `AUTH_MODE=gateway` only. Name of the single header carrying ConnectWise credentials (default: `x-cw-gateway-key`). See below. |
 
 ### API Base URL (`CW_MANAGE_URL`)
 
@@ -221,7 +223,23 @@ Run with HTTP transport for multi-tenant gateway deployments:
 MCP_TRANSPORT=http AUTH_MODE=gateway node dist/index.js
 ```
 
-Pass credentials per-request via headers: `X-CW-Company-Id`, `X-CW-Public-Key`, `X-CW-Private-Key`, `X-CW-Client-Id`, and optionally `X-CW-URL`.
+Pass all ConnectWise credentials per-request in a single header — name configurable via `GATEWAY_HEADER_NAME` (default `x-cw-gateway-key`) — whose value is:
+
+```
+Base64("{companyId}+{publicKey}:{privateKey}@{clientId}[{serverUrl}]")
+```
+
+`[{serverUrl}]` is optional (defaults to the NA cloud endpoint if omitted). Build it with:
+
+```bash
+echo -n "yourcompany+yourPublicKey:yourPrivateKey@yourClientId[https://api-na.myconnectwise.net]" | base64
+```
+
+Then send it as, e.g.:
+
+```
+x-cw-gateway-key: <base64 value>
+```
 
 ## Development
 
