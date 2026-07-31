@@ -36,8 +36,26 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
   );
 
   server.tool(
+    "cw_get_schedule_statuses",
+    "List available ConnectWise schedule statuses. Use this to discover the status ID to mark a schedule entry as Firm or Tentative: a status with showAsTentativeFlag = true displays as Tentative; showAsTentativeFlag = false (or absent) displays as Firm/Confirmed. Status IDs are tenant-specific — always look them up here rather than assuming Firm = 1 / Tentative = 2. Call this before using statusId on cw_create_schedule_entry or cw_update_schedule_entry.",
+    {
+      conditions: z.string().optional().describe("ConnectWise conditions query string (e.g. \"showAsTentativeFlag = true\")"),
+      page: z.number().optional().describe("Page number (default: 1)"),
+      pageSize: z.number().optional().describe("Results per page (default: 25, max: 1000)"),
+    },
+    async ({ conditions, page, pageSize }) => {
+      const result = await client.get("/schedule/statuses", {
+        conditions,
+        page: page ?? 1,
+        pageSize: pageSize ?? 25,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
     "cw_create_schedule_entry",
-    "Create a new schedule entry.",
+    "Create a new schedule entry. To control whether it displays as Firm or Tentative, pass statusId set to the ID of a schedule status found via cw_get_schedule_statuses (showAsTentativeFlag = true for Tentative, false for Firm).",
     {
       objectId: z.number().describe("ID of the object being scheduled (ticket, activity, opportunity, etc.)"),
       typeId: z.string().describe("Schedule type identifier (e.g. 'S' for Service, 'A' for Activity)"),
@@ -47,6 +65,12 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       name: z.string().optional().describe("Name/subject of the schedule entry"),
       description: z.string().optional().describe("Schedule entry description"),
       doNotDisplayInDispatch: z.boolean().optional().describe("Hide from the dispatch portal"),
+      statusId: z
+        .number()
+        .optional()
+        .describe(
+          "Schedule status ID controlling Firm vs Tentative display. Look this up with cw_get_schedule_statuses first: use the ID of a status with showAsTentativeFlag = true for a Tentative entry, or showAsTentativeFlag = false for a Firm entry. Omit to use the tenant's default status.",
+        ),
       allowScheduleConflictsFlag: z
         .boolean()
         .optional()
@@ -54,7 +78,7 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
           "Set to true to allow this entry to be created even if it conflicts with existing schedule entries. Use when intentionally overlapping Tier Queue blocks or other overrideable entries.",
         ),
     },
-    async ({ objectId, typeId, dateStart, dateEnd, memberId, name, description, doNotDisplayInDispatch, allowScheduleConflictsFlag }) => {
+    async ({ objectId, typeId, dateStart, dateEnd, memberId, name, description, doNotDisplayInDispatch, statusId, allowScheduleConflictsFlag }) => {
       const body: Record<string, unknown> = {
         objectId,
         type: { identifier: typeId },
@@ -65,6 +89,7 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       if (name) body.name = name;
       if (description) body.description = description;
       if (doNotDisplayInDispatch !== undefined) body.doNotDisplayInDispatch = doNotDisplayInDispatch;
+      if (statusId !== undefined) body.status = { id: statusId };
       if (allowScheduleConflictsFlag) body.allowScheduleConflictsFlag = true;
 
       const result = await client.post("/schedule/entries", body);
@@ -74,7 +99,7 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
 
   server.tool(
     "cw_update_schedule_entry",
-    "Update an existing schedule entry (e.g. move it to a new time or reassign it) using JSON Patch operations.",
+    "Update an existing schedule entry (e.g. move it to a new time, reassign it, or flip it between Firm and Tentative) using JSON Patch operations.",
     {
       id: z.number().describe("Schedule entry ID"),
       operations: z
@@ -86,6 +111,12 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
           }),
         )
         .describe("Array of JSON Patch operations"),
+      statusId: z
+        .number()
+        .optional()
+        .describe(
+          "Convenience shortcut to change Firm/Tentative status: schedule status ID to set on the entry, equivalent to a 'replace /status' patch op. Look it up with cw_get_schedule_statuses first (showAsTentativeFlag = true for Tentative, false for Firm).",
+        ),
       allowScheduleConflictsFlag: z
         .boolean()
         .optional()
@@ -93,10 +124,14 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
           "Set to true to allow this entry to be scheduled over existing conflicting entries. Use when intentionally overlapping Tier Queue blocks or other overrideable entries.",
         ),
     },
-    async ({ id, operations, allowScheduleConflictsFlag }) => {
-      const patchOps = allowScheduleConflictsFlag
-        ? [...operations, { op: "replace", path: "allowScheduleConflictsFlag", value: true }]
-        : operations;
+    async ({ id, operations, statusId, allowScheduleConflictsFlag }) => {
+      const patchOps = [...operations];
+      if (statusId !== undefined) {
+        patchOps.push({ op: "replace", path: "status", value: { id: statusId } });
+      }
+      if (allowScheduleConflictsFlag) {
+        patchOps.push({ op: "replace", path: "allowScheduleConflictsFlag", value: true });
+      }
       const result = await client.patch(`/schedule/entries/${id}`, patchOps);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
