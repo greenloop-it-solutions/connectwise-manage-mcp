@@ -5,7 +5,7 @@
 
 **Let your AI assistant work directly with ConnectWise Manage.** Search tickets, log time, look up companies and contacts, manage projects — through natural conversation instead of clicking through the CWM interface.
 
-This is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that gives Claude (or any MCP-compatible AI) 52 tools covering the daily operations ConnectWise Manage shops depend on. Works with both **cloud-hosted and self-hosted** CWM instances — just point it at your server.
+This is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that gives Claude (or any MCP-compatible AI) 68 tools covering the daily operations ConnectWise Manage shops depend on. Works with both **cloud-hosted and self-hosted** CWM instances — just point it at your server.
 
 > **Part of the [MSP Claude Plugins](https://github.com/wyre-technology/msp-claude-plugins) ecosystem** — a growing suite of AI integrations for the MSP stack including [Autotask](https://github.com/wyre-technology/autotask-mcp), [Datto RMM](https://github.com/wyre-technology/datto-rmm-mcp), [IT Glue](https://github.com/wyre-technology/itglue-mcp), [HaloPSA](https://github.com/wyre-technology/halopsa-mcp), [NinjaOne](https://github.com/wyre-technology/ninjaone-mcp), [Huntress](https://github.com/wyre-technology/huntress-mcp), and more. Built by MSPs, for MSPs.
 
@@ -109,8 +109,10 @@ needed.
 
 ### Time Entries
 - `cw_search_time_entries` — Search time entries
+- `cw_list_work_types` — List available work types (the kind of work performed, e.g. Installation, Remote Support, After-Hours Support)
+- `cw_list_work_roles` — List available work roles (the role performing the work, e.g. Engineer, Senior Engineer, Product Manager)
 - `cw_get_time_entry` — Get a time entry by ID
-- `cw_create_time_entry` — Create a new time entry
+- `cw_create_time_entry` — Create a new time entry (optionally billable status via `billableOption`: Billable, DoNotBill, or NoCharge)
 
 ### Members
 - `cw_search_members` — Search members/technicians
@@ -124,6 +126,10 @@ needed.
 - `cw_list_boards` — List service boards
 - `cw_list_priorities` — List ticket priorities
 - `cw_list_statuses` — List statuses for a board
+- `cw_list_ticket_types` — List ticket types for a board
+- `cw_list_ticket_subtypes` — List ticket subtypes for a board
+- `cw_list_ticket_items` — List ticket items for a board
+- `cw_list_ticket_type_subtype_associations` — List valid type/subtype/item combinations for a board
 
 ### Activities
 - `cw_search_activities` — Search activities
@@ -133,7 +139,12 @@ needed.
 ### Agreements
 - `cw_search_agreements` — Search agreements
 - `cw_get_agreement` — Get an agreement by ID
+- `cw_create_agreement` — Create a new agreement
+- `cw_update_agreement` — Update an agreement (JSON Patch)
 - `cw_get_agreement_additions` — Get additions (line items) on an agreement
+- `cw_get_agreement_addition` — Get a single addition by ID
+- `cw_add_agreement_addition` — Add a new addition (line item) to an agreement
+- `cw_update_agreement_addition` — Update an existing addition (JSON Patch)
 
 ### Invoices
 - `cw_search_invoices` — Search invoices

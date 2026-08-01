@@ -65,9 +65,10 @@ export function registerTicketTools(server: McpServer, client: CwManageClient) {
       priorityId: z.number().optional().describe("Priority ID"),
       typeId: z.number().optional().describe("Type ID"),
       subTypeId: z.number().optional().describe("SubType ID"),
+      itemId: z.number().optional().describe("Item ID"),
       initialDescription: z.string().optional().describe("Initial ticket description"),
     },
-    async ({ summary, boardId, companyId, contactId, statusId, priorityId, typeId, subTypeId, initialDescription }) => {
+    async ({ summary, boardId, companyId, contactId, statusId, priorityId, typeId, subTypeId, itemId, initialDescription }) => {
       const body: Record<string, unknown> = { summary };
       if (boardId) body.board = { id: boardId };
       if (companyId) body.company = { id: companyId };
@@ -76,6 +77,7 @@ export function registerTicketTools(server: McpServer, client: CwManageClient) {
       if (priorityId) body.priority = { id: priorityId };
       if (typeId) body.type = { id: typeId };
       if (subTypeId) body.subType = { id: subTypeId };
+      if (itemId) body.item = { id: itemId };
       if (initialDescription) body.initialDescription = initialDescription;
 
       const result = await client.post("/service/tickets", body);

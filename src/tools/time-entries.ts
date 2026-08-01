@@ -24,6 +24,42 @@ export function registerTimeEntryTools(server: McpServer, client: CwManageClient
   );
 
   server.tool(
+    "cw_list_work_types",
+    "List available work types in ConnectWise Manage — the kind of work performed on a time entry (e.g. Installation, Remote Support, After-Hours Support).",
+    {
+      conditions: z.string().optional().describe("ConnectWise conditions query string"),
+      page: z.number().optional().describe("Page number (default: 1)"),
+      pageSize: z.number().optional().describe("Results per page (default: 25, max: 1000)"),
+    },
+    async ({ conditions, page, pageSize }) => {
+      const result = await client.get("/time/workTypes", {
+        conditions,
+        page: page ?? 1,
+        pageSize: pageSize ?? 25,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_list_work_roles",
+    "List available work roles in ConnectWise Manage — the role the member performed the work under (e.g. Engineer, Senior Engineer, Product Manager), used for billing rate determination.",
+    {
+      conditions: z.string().optional().describe("ConnectWise conditions query string"),
+      page: z.number().optional().describe("Page number (default: 1)"),
+      pageSize: z.number().optional().describe("Results per page (default: 25, max: 1000)"),
+    },
+    async ({ conditions, page, pageSize }) => {
+      const result = await client.get("/time/workRoles", {
+        conditions,
+        page: page ?? 1,
+        pageSize: pageSize ?? 25,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
     "cw_get_time_entry",
     "Get a specific time entry by ID.",
     {
@@ -49,8 +85,26 @@ export function registerTimeEntryTools(server: McpServer, client: CwManageClient
       internalNotes: z.string().optional().describe("Internal-only notes"),
       workTypeId: z.number().optional().describe("Work type ID"),
       workRoleId: z.number().optional().describe("Work role ID"),
+      billableOption: z
+        .enum(["Billable", "DoNotBill", "NoCharge"])
+        .optional()
+        .describe(
+          "Billable status: 'Billable' invoices normally, 'DoNotBill' excludes the entry from invoices entirely, 'NoCharge' appears on the invoice at no charge.",
+        ),
     },
-    async ({ chargeToType, chargeToId, memberId, timeStart, timeEnd, actualHours, notes, internalNotes, workTypeId, workRoleId }) => {
+    async ({
+      chargeToType,
+      chargeToId,
+      memberId,
+      timeStart,
+      timeEnd,
+      actualHours,
+      notes,
+      internalNotes,
+      workTypeId,
+      workRoleId,
+      billableOption,
+    }) => {
       const body: Record<string, unknown> = {
         chargeToType,
         chargeToId,
@@ -63,6 +117,7 @@ export function registerTimeEntryTools(server: McpServer, client: CwManageClient
       if (internalNotes) body.internalNotes = internalNotes;
       if (workTypeId) body.workType = { id: workTypeId };
       if (workRoleId) body.workRole = { id: workRoleId };
+      if (billableOption) body.billableOption = billableOption;
 
       const result = await client.post("/time/entries", body);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
