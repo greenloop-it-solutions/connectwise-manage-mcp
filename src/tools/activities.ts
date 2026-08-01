@@ -62,4 +62,37 @@ export function registerActivityTools(server: McpServer, client: CwManageClient)
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );
+
+  server.tool(
+    "cw_update_activity",
+    "Update an existing activity using JSON Patch operations. Use to reschedule (dateStart/dateEnd), change scheduleStatus, reassign, rename, or close an activity.",
+    {
+      id: z.number().describe("Activity ID"),
+      operations: z
+        .array(
+          z.object({
+            op: z.enum(["replace", "add", "remove"]).describe("Patch operation"),
+            path: z.string().describe("Field path, e.g. 'dateStart', 'dateEnd', 'scheduleStatus/id', 'name', 'assignTo/id', 'closeFlag'"),
+            value: z.unknown().optional().describe("New value"),
+          }),
+        )
+        .describe("Array of JSON Patch operations"),
+    },
+    async ({ id, operations }) => {
+      const result = await client.patch(`/sales/activities/${id}`, operations);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_delete_activity",
+    "Permanently delete an activity by ID. Use when an activity was created in error.",
+    {
+      id: z.number().describe("Activity ID to delete"),
+    },
+    async ({ id }) => {
+      await client.delete(`/sales/activities/${id}`);
+      return { content: [{ type: "text", text: `Activity ${id} deleted successfully` }] };
+    },
+  );
 }

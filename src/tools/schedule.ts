@@ -148,4 +148,16 @@ export function registerScheduleTools(server: McpServer, client: CwManageClient)
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );
+
+  server.tool(
+    "cw_list_holidays",
+    "List holidays in a holiday list. Use the holidayList.id from a member's calendar (via cw_get_schedule_calendar) to check whether a proposed date is a company holiday before scheduling.",
+    {
+      holidayListId: z.number().describe("Holiday list ID (found on the calendar object as holidayList.id)"),
+    },
+    async ({ holidayListId }) => {
+      const result = await client.get(`/system/holidayLists/${holidayListId}/holidays`);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
 }

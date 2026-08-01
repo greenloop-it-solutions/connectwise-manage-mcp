@@ -135,6 +135,8 @@ needed.
 - `cw_search_activities` — Search activities
 - `cw_get_activity` — Get an activity by ID
 - `cw_create_activity` — Create a new activity
+- `cw_update_activity` — Update an activity (JSON Patch — reschedule, change status, reassign, rename, close)
+- `cw_delete_activity` — Permanently delete an activity
 
 ### Agreements
 - `cw_search_agreements` — Search agreements
@@ -164,6 +166,7 @@ needed.
 - `cw_create_schedule_entry` — Create a new schedule entry (optionally Firm/Tentative via `statusId`)
 - `cw_update_schedule_entry` — Update an existing schedule entry (JSON Patch, optionally Firm/Tentative via `statusId`)
 - `cw_get_schedule_calendar` — Get a schedule calendar by ID (working hours)
+- `cw_list_holidays` — List holidays in a holiday list (check before scheduling on a proposed date)
 
 ### Catalog (Products)
 - `cw_search_catalog_items` — Search product catalog items
