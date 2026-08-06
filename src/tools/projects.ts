@@ -124,6 +124,58 @@ export function registerProjectTools(server: McpServer, client: CwManageClient) 
   );
 
   server.tool(
+    "cw_get_project_ticket_tasks",
+    "Get all checklist tasks on a project ticket (the task list/sub-items inside the ticket, not the ticket itself).",
+    {
+      id: z.number().describe("Project ticket ID"),
+      page: z.number().optional().describe("Page number (default: 1)"),
+      pageSize: z.number().optional().describe("Results per page (default: 25, max: 1000)"),
+    },
+    async ({ id, page, pageSize }) => {
+      const result = await client.get(`/project/tickets/${id}/tasks`, {
+        page: page ?? 1,
+        pageSize: pageSize ?? 25,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_get_project_ticket_task",
+    "Get a single checklist task on a project ticket by task ID.",
+    {
+      id: z.number().describe("Project ticket ID"),
+      taskId: z.number().describe("Task ID"),
+    },
+    async ({ id, taskId }) => {
+      const result = await client.get(`/project/tickets/${id}/tasks/${taskId}`);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_update_project_ticket_task",
+    "Update a checklist task on a project ticket using JSON Patch operations (e.g. set closedFlag to mark complete, edit notes, or change sequence/priority).",
+    {
+      id: z.number().describe("Project ticket ID"),
+      taskId: z.number().describe("Task ID"),
+      operations: z
+        .array(
+          z.object({
+            op: z.enum(["replace", "add", "remove"]).describe("Patch operation"),
+            path: z.string().describe("Field path, e.g. 'closedFlag', 'notes', 'priority'"),
+            value: z.unknown().optional().describe("New value"),
+          }),
+        )
+        .describe("Array of JSON Patch operations"),
+    },
+    async ({ id, taskId, operations }) => {
+      const result = await client.patch(`/project/tickets/${id}/tasks/${taskId}`, operations);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
     "cw_create_project",
     "Create a new project.",
     {
