@@ -60,6 +60,26 @@ export function registerTimeEntryTools(server: McpServer, client: CwManageClient
   );
 
   server.tool(
+    "cw_search_charge_codes",
+    "Search GL charge codes in ConnectWise Manage — the non-ticket buckets time can be charged to (e.g. Meeting, PTO, Training). Use this to resolve a charge code name to the numeric ID needed by cw_create_time_entry / cw_update_time_entry (chargeToType: 'ChargeCode').",
+    {
+      conditions: z.string().optional().describe("ConnectWise conditions query string (e.g. \"name like '%Meeting%'\")"),
+      page: z.number().optional().describe("Page number (default: 1)"),
+      pageSize: z.number().optional().describe("Results per page (default: 25, max: 1000)"),
+      orderBy: z.string().optional().describe("Field to order by (e.g. 'name asc')"),
+    },
+    async ({ conditions, page, pageSize, orderBy }) => {
+      const result = await client.get("/time/chargeCodes", {
+        conditions,
+        page: page ?? 1,
+        pageSize: pageSize ?? 25,
+        orderBy,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
     "cw_get_time_entry",
     "Get a specific time entry by ID.",
     {
@@ -121,6 +141,57 @@ export function registerTimeEntryTools(server: McpServer, client: CwManageClient
 
       const result = await client.post("/time/entries", body);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_update_time_entry",
+    "Update an existing time entry using JSON Patch operations — correct the charge target, work type/role, billable status, notes, or hours after the entry was created.",
+    {
+      id: z.number().describe("Time entry ID"),
+      operations: z
+        .array(
+          z.object({
+            op: z.enum(["replace", "add", "remove"]).describe("Patch operation"),
+            path: z
+              .string()
+              .describe(
+                "Field path: 'chargeToId', 'chargeToType' (ServiceTicket | ProjectTicket | ChargeCode | Activity), 'workType/id', 'workRole/id', 'billableOption' (Billable | DoNotBill | NoCharge), 'notes', 'internalNotes', 'timeStart', 'timeEnd', 'actualHours'. Change chargeToId and chargeToType together when moving an entry between charge targets.",
+              ),
+            value: z.unknown().optional().describe("New value"),
+          }),
+        )
+        .describe("Array of JSON Patch operations"),
+    },
+    async ({ id, operations }) => {
+      const result = await client.patch(`/time/entries/${id}`, operations);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "cw_delete_time_entry",
+    "Permanently delete a time entry by ID. Use when an entry was created in error and cannot be corrected with cw_update_time_entry. Only entries still in 'Open' status can be deleted — submitted, approved, or billed entries are rejected.",
+    {
+      id: z.number().describe("Time entry ID to delete"),
+    },
+    async ({ id }) => {
+      const entry = await client.get<{ status?: string }>(`/time/entries/${id}`);
+      const status = entry?.status;
+      if (status && status !== "Open") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Refusing to delete time entry ${id}: status is '${status}', not 'Open'. Submitted, approved, or billed entries must be reopened in ConnectWise before they can be deleted.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      await client.delete(`/time/entries/${id}`);
+      return { content: [{ type: "text", text: `Time entry ${id} deleted successfully` }] };
     },
   );
 }

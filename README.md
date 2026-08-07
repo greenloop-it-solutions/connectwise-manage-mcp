@@ -117,8 +117,11 @@ needed.
 - `cw_search_time_entries` — Search time entries
 - `cw_list_work_types` — List available work types (the kind of work performed, e.g. Installation, Remote Support, After-Hours Support)
 - `cw_list_work_roles` — List available work roles (the role performing the work, e.g. Engineer, Senior Engineer, Product Manager)
+- `cw_search_charge_codes` — Search GL charge codes (resolve a name like "Meeting" to the ID used by `chargeToId`)
 - `cw_get_time_entry` — Get a time entry by ID
 - `cw_create_time_entry` — Create a new time entry (optionally billable status via `billableOption`: Billable, DoNotBill, or NoCharge)
+- `cw_update_time_entry` — Update a time entry (JSON Patch — change charge target, work type/role, billable option, notes, or hours)
+- `cw_delete_time_entry` — Permanently delete a time entry (only entries in `Open` status)
 
 ### Members
 - `cw_search_members` — Search members/technicians
